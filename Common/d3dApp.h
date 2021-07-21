@@ -10,6 +10,7 @@
 #endif
 
 #include "d3dUtil.h"
+#include "d3d12.h";
 #include "GameTimer.h"
 
 // Link necessary d3d12 libraries.
@@ -84,11 +85,11 @@ protected:
 	bool      mResizing = false;   // are the resize bars being dragged?
     bool      mFullscreenState = false;// fullscreen enabled
 
-	// Set true to use 4X MSAA (§4.1.8).  The default is false.
+	// Set true to use 4X MSAA (ï¿½4.1.8).  The default is false.
     bool      m4xMsaaState = false;    // 4X MSAA enabled
-    UINT      m4xMsaaQuality = 0;      // quality level of 4X MSAA
+    UINT      m4xMsaaQuality = 1;      // quality level of 4X MSAA
 
-	// Used to keep track of the “delta-time” and game time (§4.4).
+	// Used to keep track of the ï¿½delta-timeï¿½ and game time (ï¿½4.4).
 	GameTimer mTimer;
 	
     Microsoft::WRL::ComPtr<IDXGIFactory4> mdxgiFactory;

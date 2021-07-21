@@ -133,3 +133,38 @@ void VertBlurCS(int3 groupThreadID : SV_GroupThreadID,
 	
 	gOutput[dispatchThreadID.xy] = blurColor;
 }
+
+float BilateralW(int2 ori, int2 cur)
+{
+	float f1 = pow(ori.x - cur.x, 2) + pow(ori.y - cur.y, 2) / (2 * w0 * w0);
+	float f2 = length(gInput[ori] - gInput[cur]);
+	f2 *= f2;
+	f2 /= (2 * w1 * w1);
+
+	return exp(-f1 - f2);
+}
+
+[numthreads(16, 16, 1)]
+void BilateralCS(int3 dispatchThreadID : SV_DispatchThreadID)
+{
+	float4 color = 0;
+	float total_w = 0;
+	for(int i = -gBlurRadius; i <= gBlurRadius; ++i)
+	{
+		for(int j = -gBlurRadius; j <= gBlurRadius; ++j)
+		{
+			if(dispatchThreadID.x >= i 
+				&& dispatchThreadID.x + i < gInput.Length.x 
+				&& dispatchThreadID.y >= j 
+				&& dispatchThreadID.y + j < gInput.Length.y)
+			{
+				int2 cur = int2(i + dispatchThreadID.x, j + dispatchThreadID.y);
+				float w = BilateralW(dispatchThreadID.xy, cur.xy);
+				total_w += w;
+				color += gInput[cur.xy] * w;
+			}
+		}
+	}
+
+	gOutput[dispatchThreadID.xy] = color / total_w;
+}

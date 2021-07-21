@@ -524,9 +524,14 @@ void ShadowMapApp::UpdateShadowTransform(const GameTimer& gt)
     float t = sphereCenterLS.y + mSceneBounds.Radius;
     float f = sphereCenterLS.z + mSceneBounds.Radius;
 
-    mLightNearZ = n;
-    mLightFarZ = f;
+    // float nearZ = n;
+    // float farZ = f;
+    // float fovY = asin(mSceneBounds.Radius / sphereCenterLS.z) * 2;
+    // float aspect = 1.0f;
+	// XMMATRIX lightProj = XMMatrixPerspectiveFovLH(fovY, aspect, nearZ, farZ);
+
     XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
+
 
     // Transform NDC space [-1,+1]^2 to texture space [0,1]^2
     XMMATRIX T(

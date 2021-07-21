@@ -919,7 +919,7 @@ void CubeMapApp::BuildMaterials()
     mirror0->DiffuseSrvHeapIndex = 2;
     mirror0->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.1f, 1.0f);
     mirror0->FresnelR0 = XMFLOAT3(0.98f, 0.97f, 0.95f);
-    mirror0->Roughness = 0.1f;
+    mirror0->Roughness = 0.55f;
 
     auto skullMat = std::make_unique<Material>();
     skullMat->Name = "skullMat";

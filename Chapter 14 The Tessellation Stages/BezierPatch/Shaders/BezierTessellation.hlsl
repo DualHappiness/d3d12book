@@ -133,6 +133,8 @@ HullOut HS(InputPatch<VertexOut, 16> p,
 struct DomainOut
 {
 	float4 PosH : SV_POSITION;
+	float3 PosW : POSITION;
+	float3 NormalW : NORMAL;
 };
 
 float4 BernsteinBasis(float t)
@@ -181,12 +183,55 @@ DomainOut DS(PatchTess patchTess,
 	float3 p  = CubicBezierSum(bezPatch, basisU, basisV);
 	
 	float4 posW = mul(float4(p, 1.0f), gWorld);
+	dout.PosW = posW;
 	dout.PosH = mul(posW, gViewProj);
 	
+	float4 dBasisU = dBernsteinBasis(uv.x);
+	float4 dBasisV = dBernsteinBasis(uv.y);
+	float3 dpdu = CubicBezierSum(bezPatch, dBasisU, basisV);
+	float3 dpdv = CubicBezierSum(bezPatch, basisU, dBasisV);
+
+	dout.NormalW = cross(dpdu, dpdv);
 	return dout;
 }
 
 float4 PS(DomainOut pin) : SV_Target
 {
-    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	float4 diffuseAlbedo = 0.5 * gDiffuseAlbedo;
+	
+#ifdef ALPHA_TEST
+	// Discard pixel if texture alpha < 0.1.  We do this test as soon 
+	// as possible in the shader so that we can potentially exit the
+	// shader early, thereby skipping the rest of the shader code.
+	clip(diffuseAlbedo.a - 0.1f);
+#endif
+
+    // Interpolating normal can unnormalize it, so renormalize it.
+    pin.NormalW = normalize(pin.NormalW);
+
+    // Vector from point being lit to eye. 
+	float3 toEyeW = gEyePosW - pin.PosW;
+	float distToEye = length(toEyeW);
+	toEyeW /= distToEye; // normalize
+
+    // Light terms.
+    float4 ambient = gAmbientLight*diffuseAlbedo;
+
+    const float shininess = 1.0f - gRoughness;
+    Material mat = { diffuseAlbedo, gFresnelR0, shininess };
+    float3 shadowFactor = 1.0f;
+    float4 directLight = ComputeLighting(gLights, mat, pin.PosW,
+        pin.NormalW, toEyeW, shadowFactor);
+
+    float4 litColor = ambient + directLight;
+
+#ifdef FOG
+	float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
+	litColor = lerp(litColor, gFogColor, fogAmount);
+#endif
+
+    // Common convention to take alpha from diffuse albedo.
+    litColor.a = diffuseAlbedo.a;
+
+    return litColor;
 }

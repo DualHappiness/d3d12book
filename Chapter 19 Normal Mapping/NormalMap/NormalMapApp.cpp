@@ -57,6 +57,7 @@ enum class RenderLayer : int
 {
 	Opaque = 0,
 	Sky,
+	Wave,
 	Count
 };
 
@@ -286,10 +287,18 @@ void NormalMapApp::Draw(const GameTimer& gt)
     // The root signature knows how many descriptors are expected in the table.
 	mCommandList->SetGraphicsRootDescriptorTable(4, mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
+	skyTexDescriptor.Offset(1, mCbvSrvDescriptorSize);
+    mCommandList->SetGraphicsRootDescriptorTable(5, skyTexDescriptor);
+	skyTexDescriptor.Offset(1, mCbvSrvDescriptorSize);
+    mCommandList->SetGraphicsRootDescriptorTable(6, skyTexDescriptor);
+	
     DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
 
-	mCommandList->SetPipelineState(mPSOs["sky"].Get());
-	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
+	mCommandList->SetPipelineState(mPSOs["wave"].Get());
+    DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Wave]);
+
+	 mCommandList->SetPipelineState(mPSOs["sky"].Get());
+	 DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Sky]);
 
     // Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
@@ -466,7 +475,9 @@ void NormalMapApp::LoadTextures()
 		"tileNormalMap",
 		"defaultDiffuseMap",
 		"defaultNormalMap",
-		"skyCubeMap"
+                                       "skyCubeMap",
+                                       "wave0",
+                                       "wave1"
 	};
 	
 	std::vector<std::wstring> texFilenames = 
@@ -477,7 +488,9 @@ void NormalMapApp::LoadTextures()
 		L"../../Textures/tile_nmap.dds",
 		L"../../Textures/white1x1.dds",
 		L"../../Textures/default_nmap.dds",
-		L"../../Textures/snowcube1024.dds"
+		L"../../Textures/snowcube1024.dds",
+            L"../../Textures/waves0.dds",
+            L"../../Textures/waves1.dds"
 	};
 	
 	for(int i = 0; i < (int)texNames.size(); ++i)
@@ -501,8 +514,12 @@ void NormalMapApp::BuildRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE texTable1;
 	texTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10, 1, 0);
 
+	CD3DX12_DESCRIPTOR_RANGE waveTable0;
+        waveTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2);
+	CD3DX12_DESCRIPTOR_RANGE waveTable1;
+        waveTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 2);
     // Root parameter can be a table, root descriptor or root constants.
-    CD3DX12_ROOT_PARAMETER slotRootParameter[5];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[7];
 
 	// Perfomance TIP: Order from most frequent to least frequent.
     slotRootParameter[0].InitAsConstantBufferView(0);
@@ -510,12 +527,14 @@ void NormalMapApp::BuildRootSignature()
     slotRootParameter[2].InitAsShaderResourceView(0, 1);
 	slotRootParameter[3].InitAsDescriptorTable(1, &texTable0, D3D12_SHADER_VISIBILITY_PIXEL);
 	slotRootParameter[4].InitAsDescriptorTable(1, &texTable1, D3D12_SHADER_VISIBILITY_PIXEL);
+	slotRootParameter[5].InitAsDescriptorTable(1, &waveTable0, D3D12_SHADER_VISIBILITY_ALL);
+	slotRootParameter[6].InitAsDescriptorTable(1, &waveTable1, D3D12_SHADER_VISIBILITY_ALL);
 
 
 	auto staticSamplers = GetStaticSamplers();
 
     // A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(7, slotRootParameter,
 		(UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -544,7 +563,7 @@ void NormalMapApp::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 10;
+	srvHeapDesc.NumDescriptors = 12;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -590,6 +609,23 @@ void NormalMapApp::BuildDescriptorHeaps()
 	md3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDesc, hDescriptor);
 	
 	mSkyTexHeapIndex = (UINT)tex2DList.size();
+
+	auto waveMap0 = mTextures["wave0"]->Resource;
+	auto waveMap1 = mTextures["wave1"]->Resource;
+
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+    srvDesc.Format = waveMap0->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = waveMap0->GetDesc().MipLevels;
+    hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+    md3dDevice->CreateShaderResourceView(waveMap0.Get(), &srvDesc, hDescriptor);
+
+	srvDesc.Format = waveMap1->GetDesc().Format;
+    srvDesc.Texture2D.MipLevels = waveMap1->GetDesc().MipLevels;
+    hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+    md3dDevice->CreateShaderResourceView(waveMap1.Get(), &srvDesc, hDescriptor);
 }
 
 void NormalMapApp::BuildShadersAndInputLayout()
@@ -602,6 +638,9 @@ void NormalMapApp::BuildShadersAndInputLayout()
 
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "PS", "ps_5_1");
+
+	mShaders["waveVS"] = d3dUtil::CompileShader(L"Shaders\\Wave.hlsl", nullptr, "VS", "vs_5_1");
+	//mShaders["wavePS"] = d3dUtil::CompileShader(L"Shaders\\Wave.hlsl", nullptr, "PS", "ps_5_1");
 	
 	mShaders["skyVS"] = d3dUtil::CompileShader(L"Shaders\\Sky.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["skyPS"] = d3dUtil::CompileShader(L"Shaders\\Sky.hlsl", nullptr, "PS", "ps_5_1");
@@ -800,6 +839,13 @@ void NormalMapApp::BuildPSOs()
 	};
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&skyPsoDesc, IID_PPV_ARGS(&mPSOs["sky"])));
 
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC wavePsoDesc = opaquePsoDesc;
+	wavePsoDesc.VS = 
+	{
+		reinterpret_cast<BYTE*>(mShaders["waveVS"]->GetBufferPointer()),
+		mShaders["waveVS"]->GetBufferSize()
+	};
+	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&wavePsoDesc, IID_PPV_ARGS(&mPSOs["wave"])))
 }
 
 void NormalMapApp::BuildFrameResources()
@@ -910,7 +956,7 @@ void NormalMapApp::BuildRenderItems()
     gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
     gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
+	mRitemLayer[(int)RenderLayer::Wave].push_back(gridRitem.get());
 	mAllRitems.push_back(std::move(gridRitem));
 
 	XMMATRIX brickTexTransform = XMMatrixScaling(1.5f, 2.0f, 1.0f);

@@ -95,13 +95,13 @@ struct GeoOut
     uint   PrimID  : SV_PrimitiveID;
 };
 
-VertexOut VS(VertexIn vin)
+VertexOut VS(VertexIn vin, uint vertID : SV_VertexID)
 {
 	VertexOut vout;
 
 	// Just pass data over to geometry shader.
 	vout.CenterW = vin.PosW;
-	vout.SizeW   = vin.SizeW;
+	vout.SizeW   = float2(2 + vertID, 2 + vertID);
 
 	return vout;
 }
@@ -165,7 +165,7 @@ void GS(point VertexOut gin[1],
 
 float4 PS(GeoOut pin) : SV_Target
 {
-	float3 uvw = float3(pin.TexC, pin.PrimID%3);
+	float3 uvw = float3(pin.TexC, pin.PrimID);
     float4 diffuseAlbedo = gTreeMapArray.Sample(gsamAnisotropicWrap, uvw) * gDiffuseAlbedo;
 	
 #ifdef ALPHA_TEST

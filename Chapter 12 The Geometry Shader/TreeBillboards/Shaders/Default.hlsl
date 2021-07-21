@@ -85,17 +85,28 @@ struct VertexIn
 
 struct VertexOut
 {
-	float4 PosH    : SV_POSITION;
-    float3 PosW    : POSITION;
-    float3 NormalW : NORMAL;
-	float2 TexC    : TEXCOORD;
+    float3 PosL    : POSITION;
+    float3 NormalL : NORMAL;
+	float2 Tex    : TEXCOORD;
 };
 
-VertexOut VS(VertexIn vin)
+struct GeoOut
 {
-	VertexOut vout = (VertexOut)0.0f;
-	
-    // Transform to world space.
+    float4 PosH : SV_POSITION;
+    float3 PosW : POSITION;
+    float3 NormalW : NORMAL;
+    float2 Tex : TEXCOORD;
+};
+
+VertexOut VS(VertexOut vin)
+{
+    return vin;
+}
+
+GeoOut GeoVS(VertexOut vin)
+{
+    GeoOut vout;
+        // Transform to world space.
     float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
     vout.PosW = posW.xyz;
 
@@ -106,15 +117,15 @@ VertexOut VS(VertexIn vin)
     vout.PosH = mul(posW, gViewProj);
 	
 	// Output vertex attributes for interpolation across triangle.
-	float4 texC = mul(float4(vin.TexC, 0.0f, 1.0f), gTexTransform);
-	vout.TexC = mul(texC, gMatTransform).xy;
+	float4 texC = mul(float4(vin.Tex, 0.0f, 1.0f), gTexTransform);
+	vout.Tex = mul(texC, gMatTransform).xy;
 
     return vout;
 }
 
-float4 PS(VertexOut pin) : SV_Target
+float4 PS(GeoOut pin) : SV_Target
 {
-    float4 diffuseAlbedo = gDiffuseMap.Sample(gsamAnisotropicWrap, pin.TexC) * gDiffuseAlbedo;
+    float4 diffuseAlbedo = gDiffuseMap.Sample(gsamAnisotropicWrap, pin.Tex) * gDiffuseAlbedo;
 	
 #ifdef ALPHA_TEST
 	// Discard pixel if texture alpha < 0.1.  We do this test as soon 
@@ -153,4 +164,135 @@ float4 PS(VertexOut pin) : SV_Target
     return litColor;
 }
 
+void Subdivide(VertexOut inVerts[3], out VertexOut outVerts[6]){
+    VertexOut mid[3];
+    mid[0].PosL = 0.5 * (inVerts[0].PosL + inVerts[1].PosL);
+    mid[1].PosL = 0.5 * (inVerts[1].PosL + inVerts[2].PosL);
+    mid[2].PosL = 0.5 * (inVerts[2].PosL + inVerts[0].PosL);
 
+    // 落回球体
+    mid[0].PosL = normalize(mid[0].PosL);
+    mid[1].PosL = normalize(mid[1].PosL);
+    mid[2].PosL = normalize(mid[2].PosL);
+
+    mid[0].NormalL = mid[0].PosL;
+    mid[1].NormalL = mid[1].PosL;
+    mid[2].NormalL = mid[2].PosL;
+
+    mid[0].Tex = 0.5 * (inVerts[0].Tex + inVerts[1].Tex);
+    mid[1].Tex = 0.5 * (inVerts[1].Tex + inVerts[2].Tex);
+    mid[2].Tex = 0.5 * (inVerts[2].Tex + inVerts[0].Tex);
+
+    // * 这里已经不关心三角形的缠绕顺序了, 剔除再之前以及做了
+    outVerts[0] = inVerts[0];
+    outVerts[1] = mid[0];
+    outVerts[2] = mid[2];
+    outVerts[3] = mid[1];
+    outVerts[4] = inVerts[2];
+    outVerts[5] = inVerts[1];
+}
+
+void TransVertexToGeo(VertexOut v[6], int size, out GeoOut gout[6])
+{
+    [unroll]
+    for(int i = 0; i < size; ++i)
+    {
+        float4 PosW = mul(float4(v[i].PosL, 1.0f), gWorld);
+        gout[i].PosW = PosW.xyz;
+        gout[i].NormalW = mul(v[i].NormalL, (float3x3)gWorld); // 没有非等比缩放
+        gout[i].PosH = mul(PosW, gViewProj);
+        gout[i].Tex = v[i].Tex;
+    }
+}
+
+void OutputVertex(GeoOut gout[6], inout TriangleStream<GeoOut> triStream)
+{
+    [unroll]
+    for(int i = 0; i < 5; ++i)
+    {
+        triStream.Append(gout[i]);
+    }
+    triStream.RestartStrip();
+    triStream.Append(gout[1]);
+    triStream.Append(gout[5]);
+    triStream.Append(gout[3]);
+}
+
+[maxvertexcount(32)]
+void GS(triangle VertexOut gin[3], 
+        inout TriangleStream<GeoOut> triStream)
+{	
+    float distance = length(gEyePosW);
+
+    float3 l1 = gin[1].PosL - gin[0].PosL;
+    float3 l2 = gin[2].PosL - gin[0].PosL;
+    float3 pn = normalize(cross(l1, l2));
+
+    gin[0].PosL += gTotalTime * pn;
+    gin[1].PosL += gTotalTime * pn;
+    gin[2].PosL += gTotalTime * pn;
+
+    if(distance > 10.0)
+    {
+        VertexOut v[6];
+        v[0] = gin[0];
+        v[1] = gin[1];
+        v[2] = gin[2];
+
+        GeoOut gout[6];
+        TransVertexToGeo(v, 3, gout);
+        triStream.Append(gout[0]);
+        triStream.Append(gout[1]);
+        triStream.Append(gout[2]);
+    }
+    else if (distance > 5.0)
+    {
+        VertexOut v[6];
+        Subdivide(gin, v);
+        GeoOut gout[6];
+        TransVertexToGeo(v, 6, gout);
+        OutputVertex(gout, triStream);
+    }
+    else
+    {
+        // 不追求好看了 要不然应该定义一个函数划分新三角形列表 
+        VertexOut v[6];
+        Subdivide(gin, v);
+
+        VertexOut subsubv[6];
+        VertexOut subv[3];
+        GeoOut gout[6];
+
+        subv[0] = v[0];
+        subv[1] = v[1];
+        subv[2] = v[2];
+        Subdivide(subv, subsubv);
+        TransVertexToGeo(subsubv, 6, gout);
+        OutputVertex(gout, triStream);
+        triStream.RestartStrip();
+
+        subv[0] = v[2];
+        subv[1] = v[1];
+        subv[2] = v[3];
+        Subdivide(subv, subsubv);
+        TransVertexToGeo(subsubv, 6, gout);
+        OutputVertex(gout, triStream);
+        triStream.RestartStrip();
+        
+        subv[0] = v[2];
+        subv[1] = v[3];
+        subv[2] = v[4];
+        Subdivide(subv, subsubv);
+        TransVertexToGeo(subsubv, 6, gout);
+        OutputVertex(gout, triStream);
+        triStream.RestartStrip();
+
+        subv[0] = v[1];
+        subv[1] = v[5];
+        subv[2] = v[3];
+        Subdivide(subv, subsubv);
+        TransVertexToGeo(subsubv, 6, gout);
+        OutputVertex(gout, triStream);
+        triStream.RestartStrip();
+    }
+}

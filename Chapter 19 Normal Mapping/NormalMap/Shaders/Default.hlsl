@@ -39,6 +39,10 @@ VertexOut VS(VertexIn vin)
 {
 	VertexOut vout = (VertexOut)0.0f;
 
+#ifdef DISPLACEMENT_MAP
+	// Sample the displacement map using non-transformed [0,1]^2 tex-coords.
+	vin.PosL.y += gTextureMaps[1].SampleLevel(gsamLinearWrap, vin.TexC, 1.0f).r;
+#endif
 	// Fetch the material data.
 	MaterialData matData = gMaterialData[gMaterialIndex];
 	
@@ -74,14 +78,14 @@ float4 PS(VertexOut pin) : SV_Target
 	// Interpolating normal can unnormalize it, so renormalize it.
     pin.NormalW = normalize(pin.NormalW);
 	
-	float4 normalMapSample = gTextureMaps[normalMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
+	float4 normalMapSample = gTextureMaps[1].Sample(gsamAnisotropicWrap, pin.TexC);
 	float3 bumpedNormalW = NormalSampleToWorldSpace(normalMapSample.rgb, pin.NormalW, pin.TangentW);
 
 	// Uncomment to turn off normal mapping.
 	//bumpedNormalW = pin.NormalW;
 
 	// Dynamically look up the texture in the array.
-	diffuseAlbedo *= gTextureMaps[diffuseMapIndex].Sample(gsamAnisotropicWrap, pin.TexC);
+	diffuseAlbedo *= gTextureMaps[1].Sample(gsamAnisotropicWrap, pin.TexC);
 
     // Vector from point being lit to eye. 
     float3 toEyeW = normalize(gEyePosW - pin.PosW);

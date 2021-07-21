@@ -700,7 +700,7 @@ void BezierPatchApp::BuildPSOs()
 		mShaders["tessPS"]->GetBufferSize()
 	};
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
@@ -728,7 +728,7 @@ void BezierPatchApp::BuildMaterials()
 	whiteMat->Name = "quadMat";
 	whiteMat->MatCBIndex = 0;
 	whiteMat->DiffuseSrvHeapIndex = 3;
-	whiteMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	whiteMat->DiffuseAlbedo = XMFLOAT4(1.0f, 0.3f, 0.02f, 1.0f);
 	whiteMat->FresnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	whiteMat->Roughness = 0.5f;
 

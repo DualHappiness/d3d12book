@@ -40,6 +40,10 @@ Texture2D gTextureMaps[10] : register(t1);
 // The texture array will occupy registers t0, t1, ..., t3 in space0. 
 StructuredBuffer<MaterialData> gMaterialData : register(t0, space1);
 
+Texture2D gNormalMap0 : register(t0, space2);
+Texture2D gNormalMap1 : register(t1, space2);
+// Texture2D gDisplaceMap0 : register(t2, space2);
+// Texture2D gDisplaceMap1 : register(t3, space2);
 
 SamplerState gsamPointWrap        : register(s0);
 SamplerState gsamPointClamp       : register(s1);

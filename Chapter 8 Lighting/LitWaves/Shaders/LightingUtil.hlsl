@@ -23,6 +23,22 @@ struct Material
     float Shininess;
 };
 
+float f(float kd)
+{
+    // return kd;
+    if(kd <= 0) return 0.4;
+    if(kd <= 0.5) return 0.6;
+    return 1.0;
+}
+
+float g(float ks)
+{
+    // return ks;
+    if(ks <= 0.1) return 0;
+    if(ks <= 0.8) return 0.5;
+    return 0.8;
+}
+
 float CalcAttenuation(float d, float falloffStart, float falloffEnd)
 {
     // Linear falloff.
@@ -46,7 +62,7 @@ float3 BlinnPhong(float3 lightStrength, float3 lightVec, float3 normal, float3 t
     const float m = mat.Shininess * 256.0f;
     float3 halfVec = normalize(toEye + lightVec);
 
-    float roughnessFactor = (m + 8.0f)*pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
+    float roughnessFactor = g((m + 8.0f)*pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f);
     float3 fresnelFactor = SchlickFresnel(mat.FresnelR0, halfVec, lightVec);
 
     float3 specAlbedo = fresnelFactor*roughnessFactor;
@@ -67,7 +83,7 @@ float3 ComputeDirectionalLight(Light L, Material mat, float3 normal, float3 toEy
     float3 lightVec = -L.Direction;
 
     // Scale light down by Lambert's cosine law.
-    float ndotl = max(dot(lightVec, normal), 0.0f);
+    float ndotl = f(max(dot(lightVec, normal), 0.0f));
     float3 lightStrength = L.Strength * ndotl;
 
     return BlinnPhong(lightStrength, lightVec, normal, toEye, mat);

@@ -27,7 +27,7 @@ struct RenderItem
 
 	bool Visible = true;
 
-	BoundingBox Bounds;
+	BoundingSphere Bounds;
  
     // World matrix of the shape that describes the object's local space
     // relative to the world space, which defines the position, orientation,
@@ -603,6 +603,9 @@ void PickingApp::BuildCarGeometry()
 	XMStoreFloat3(&bounds.Center, 0.5f*(vMin + vMax));
 	XMStoreFloat3(&bounds.Extents, 0.5f*(vMax - vMin));
 
+	BoundingSphere boundSphere;
+	BoundingSphere::CreateFromBoundingBox(boundSphere, bounds);
+
 	fin >> ignore;
 	fin >> ignore;
 	fin >> ignore;
@@ -647,7 +650,7 @@ void PickingApp::BuildCarGeometry()
 	submesh.IndexCount = (UINT)indices.size();
 	submesh.StartIndexLocation = 0;
 	submesh.BaseVertexLocation = 0;
-	submesh.Bounds = bounds;
+	submesh.Bounds = boundSphere;
 
 	geo->DrawArgs["car"] = submesh;
 

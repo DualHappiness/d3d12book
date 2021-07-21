@@ -120,6 +120,7 @@ float CalcShadowFactor(float4 shadowPosH)
     // Depth in NDC space.
     float depth = shadowPosH.z;
 
+    // return gShadowMap.SampleCmpLevelZero(gsamShadow, shadowPosH.xy, depth);
     uint width, height, numMips;
     gShadowMap.GetDimensions(0, width, height, numMips);
 
